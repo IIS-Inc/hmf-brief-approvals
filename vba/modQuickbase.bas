@@ -11,7 +11,7 @@ Option Explicit
 '----------------------------------------------------------------
 Private Const QB_REALM          As String = "thehousemajoritypac.quickbase.com"
 Private Const QB_TABLE_ID       As String = "bv2gw2ikx"
-Private Const QB_USER_TOKEN     As String = "REMOVED_TOKEN"
+Private Const QB_USER_TOKEN     As String = "b7mi6q_h848_0_ceb89dqcctc4vcdree3bzbpt8aqu"
 Private Const QB_API_URL        As String = "https://api.quickbase.com/v1/records"
 
 ' Field IDs
