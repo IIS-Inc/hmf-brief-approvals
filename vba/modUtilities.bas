@@ -82,14 +82,15 @@ Private Function PromptForRID() As Long
     strPrompt = "No HMF Record ID was found for this document." & vbCrLf & vbCrLf & _
                 "Please enter the Quickbase Record ID (numeric only):" & vbCrLf & vbCrLf & _
                 "You can find this in Quickbase under the Brief record URL" & vbCrLf & _
-                "or in the HMF ID field on the Brief form."
+                "or in the HMF ID field on the Brief form." & vbCrLf & vbCrLf & _
+                "Click Cancel to open without an ID (Admin update mode)."
 
     blnValid = False
 
     Do While Not blnValid
         strInput = InputBox(strPrompt, "HMF Brief Approval — Record ID Required", "")
 
-        ' User cancelled
+        ' User cancelled — allowed, Admin may need to update without RID
         If strInput = "" Then
             PromptForRID = 0
             Exit Function
@@ -192,116 +193,3 @@ Public Sub SetCurrentBriefStatus(strStatus As String)
 End Sub
 
 '================================================================
-' GetCurrentDepartmentStatus
-' Returns the stored status for a given department.
-'================================================================
-Public Function GetCurrentDepartmentStatus(strDept As String) As String
-    Select Case strDept
-        Case "Digital"
-            GetCurrentDepartmentStatus = GetStatusProperty(PROP_DIG_STATUS)
-        Case "Research"
-            GetCurrentDepartmentStatus = GetStatusProperty(PROP_RES_STATUS)
-        Case "Executive"
-            GetCurrentDepartmentStatus = GetStatusProperty(PROP_EXEC_STATUS)
-        Case Else
-            GetCurrentDepartmentStatus = ""
-    End Select
-End Function
-
-'================================================================
-' SetDepartmentStatus
-' Saves a department status to document properties.
-'================================================================
-Public Sub SetDepartmentStatus(strDept As String, strStatus As String)
-    Select Case strDept
-        Case "Digital"
-            SetStatusProperty PROP_DIG_STATUS, strStatus
-        Case "Research"
-            SetStatusProperty PROP_RES_STATUS, strStatus
-        Case "Executive"
-            SetStatusProperty PROP_EXEC_STATUS, strStatus
-    End Select
-End Sub
-
-'================================================================
-' GetStageNumber
-' Mirrors the Quickbase stage formula in VBA.
-'================================================================
-Public Function GetStageNumber() As Double
-    Dim strStatus As String
-    strStatus = GetCurrentBriefStatus()
-
-    Select Case strStatus
-        Case "Pending Digital review":                  GetStageNumber = 1
-        Case "Digital: Editing":                        GetStageNumber = 1.1
-        Case "Digital: Rejected":                       GetStageNumber = 1.2
-        Case "Digital: Approved":                       GetStageNumber = 1.5
-        Case "Pending Research review":                 GetStageNumber = 2
-        Case "Research: Editing":                       GetStageNumber = 2.1
-        Case "Research: Rejected":                      GetStageNumber = 2.2
-        Case "Research: Needs legal review":            GetStageNumber = 2.3
-        Case "Research: Approved":                      GetStageNumber = 2.5
-        Case "Pending Executive review":                GetStageNumber = 3
-        Case "Executive: Needs digital edits":          GetStageNumber = 3.1
-        Case "Executive: Needs Research/Legal edits":   GetStageNumber = 3.1
-        Case "Executive: Rejected":                     GetStageNumber = 3.2
-        Case "Executive: Approved":                     GetStageNumber = 3.5
-        Case Else:                                      GetStageNumber = 0
-    End Select
-End Function
-
-'================================================================
-' IsDigitalActive / IsResearchActive / IsExecutiveActive
-' Stage gate helpers for ribbon callbacks.
-'================================================================
-Public Function IsDigitalActive() As Boolean
-    Dim dbl As Double
-    dbl = GetStageNumber()
-    IsDigitalActive = (dbl >= 0 And dbl < 2)
-End Function
-
-Public Function IsResearchActive() As Boolean
-    Dim dbl As Double
-    dbl = GetStageNumber()
-    IsResearchActive = (dbl >= 1.5 And dbl < 3)
-End Function
-
-Public Function IsExecutiveActive() As Boolean
-    Dim dbl As Double
-    dbl = GetStageNumber()
-    IsExecutiveActive = (dbl >= 2.5)
-End Function
-
-'================================================================
-' AllPropertiesInitialized
-' Returns True if document has a valid RID.
-'================================================================
-Public Function AllPropertiesInitialized() As Boolean
-    AllPropertiesInitialized = (GetRIDFromProperty() > 0)
-End Function
-
-'================================================================
-' InitializeDocument
-' Called on document open from ThisDocument.
-' Handles RID, role authentication, and initial status.
-'================================================================
-Public Sub InitializeDocument()
-    Dim lngRID As Long
-    lngRID = GetRID()
-
-    If lngRID = 0 Then
-        MsgBox "This document could not be initialized — no Record ID was provided." & vbCrLf & _
-               "Approval functions will not be available.", _
-               vbCritical, "HMF Brief Approval"
-        Exit Sub
-    End If
-
-    ' Initialize role via passcode — fires every open
-    InitializeUserRole
-
-    ' If no status has been set yet, initialize to the first stage
-    If GetCurrentBriefStatus() = "" Then
-        SetCurrentBriefStatus "Pending Digital review"
-        SetDepartmentStatus "Digital", "Pending Digital review"
-    End If
-End Sub
