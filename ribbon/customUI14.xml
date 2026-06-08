@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui"
+          onLoad="Ribbon_OnLoad">
+
+  <ribbon>
+    <tabs>
+      <tab id="tabHMF"
+           label="HMF Approvals"
+           insertAfterMso="TabHome">
+
+        <!-- ===================== -->
+        <!-- DIGITAL GROUP         -->
+        <!-- ===================== -->
+        <group id="grpDigital"
+               label="Digital Review"
+               getVisible="Digital_GetVisible">
+
+          <button id="btnDigital"
+                  label="Update Status"
+                  screentip="Digital Approval"
+                  supertip="Set the Digital review status for this brief."
+                  size="large"
+                  imageMso="TasksFromOutlook"
+                  getEnabled="Digital_GetEnabled"
+                  onAction="Digital_OnAction"/>
+
+          <labelControl id="lblDigitalStatus"
+                        getLabel="Digital_GetStatusLabel"/>
+
+        </group>
+
+        <!-- ===================== -->
+        <!-- RESEARCH GROUP        -->
+        <!-- ===================== -->
+        <group id="grpResearch"
+               label="Research Review"
+               getVisible="Research_GetVisible">
+
+          <button id="btnResearch"
+                  label="Update Status"
+                  screentip="Research Approval"
+                  supertip="Set the Research review status for this brief."
+                  size="large"
+                  imageMso="TasksFromOutlook"
+                  getEnabled="Research_GetEnabled"
+                  onAction="Research_OnAction"/>
+
+          <labelControl id="lblResearchStatus"
+                        getLabel="Research_GetStatusLabel"/>
+
+        </group>
+
+        <!-- ===================== -->
+        <!-- EXECUTIVE GROUP       -->
+        <!-- ===================== -->
+        <group id="grpExecutive"
+               label="Executive Review"
+               getVisible="Executive_GetVisible">
+
+          <button id="btnExecutive"
+                  label="Update Status"
+                  screentip="Executive Approval"
+                  supertip="Set the Executive review status for this brief."
+                  size="large"
+                  imageMso="TasksFromOutlook"
+                  getEnabled="Executive_GetEnabled"
+                  onAction="Executive_OnAction"/>
+
+          <labelControl id="lblExecutiveStatus"
+                        getLabel="Executive_GetStatusLabel"/>
+
+        </group>
+
+        <!-- ===================== -->
+        <!-- INFO GROUP            -->
+        <!-- ===================== -->
+        <group id="grpInfo"
+               label="Brief Status">
+
+          <labelControl id="lblBriefStatus"
+                        getLabel="Brief_GetStatusLabel"/>
+
+          <labelControl id="lblRID"
+                        getLabel="Brief_GetRIDLabel"/>
+
+          <button id="btnRefresh"
+                  label="Refresh"
+                  screentip="Refresh Ribbon"
+                  supertip="Refresh the ribbon to reflect the latest approval status."
+                  size="normal"
+                  imageMso="Refresh"
+                  onAction="Ribbon_Refresh"/>
+
+        </group>
+
+      </tab>
+    </tabs>
+  </ribbon>
+
+</customUI>
