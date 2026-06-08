@@ -1,0 +1,13 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Windows temp files
+*.tmp
+
+# VBA binary form file (auto-generated, not needed in repo)
+*.frx
+
+# Local test documents with real RIDs or tokens
+*_local.*
+*_test.*
