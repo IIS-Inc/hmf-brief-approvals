@@ -1,6 +1,5 @@
-# hmf-brief-approvals
-
-### Word-Based Approval Workflow with QB Integration
+# HMF Brief Approval System
+### Word-Based Approval Workflow with Quickbase Integration
 
 ---
 
@@ -76,11 +75,11 @@ Only enable this on machines used by the Admin role.
 ## Quickbase Configuration
 
 ### Application
-    Realm:   thehousemajoritypac.quickbase.com
-    App ID:  bvs4z5zm2
+    Realm:   xxxxxxxxxxxxxxxxxxx.quickbase.com
+    App ID:  xxxxxxxxxx
 
 ### Briefs Table
-    Table ID: bv2gw2ikx
+    Table ID: xxxxxxxxxx
 
     Field Label               Type                    Field ID
     ─────────────────────────────────────────────────────────
@@ -91,7 +90,7 @@ Only enable this on machines used by the Admin role.
     Approval Log              Text                     13
 
 ### Roles Table
-    Table ID: bv4tv6qdc
+    Table ID: xxxxxxxxxx
 
     Field Label   Type                    Field ID
     ──────────────────────────────────────────────
@@ -376,8 +375,6 @@ The ribbon XML must be added using the Office RibbonX Editor:
 
 ---
 
-HMF Brief Approval System — developed for House Majority PAC
+HMF Brief Approval System — developed for HMP
 Repository: https://github.com/IIS-Inc/hmf-brief-approvals
-
-
 
