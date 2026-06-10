@@ -286,22 +286,23 @@ End Function
 ' Handles RID, role authentication, and initial status.
 '================================================================
 Public Sub InitializeDocument()
+
+    ' Role always initializes first — allows Admin to
+    ' run UpdateFromGitHub even on a clean template with no RID
+    InitializeUserRole
+
+    ' RID check — exits silently if not provided
     Dim lngRID As Long
     lngRID = GetRID()
 
     If lngRID = 0 Then
-        MsgBox "This document could not be initialized — no Record ID was provided." & vbCrLf & _
-               "Approval functions will not be available.", _
-               vbCritical, "HMF Brief Approval"
         Exit Sub
     End If
 
-    ' Initialize role via passcode — fires every open
-    InitializeUserRole
-
-    ' If no status has been set yet, initialize to the first stage
+    ' Initialize status if brand new document
     If GetCurrentBriefStatus() = "" Then
         SetCurrentBriefStatus "Pending Digital review"
         SetDepartmentStatus "Digital", "Pending Digital review"
     End If
+
 End Sub
