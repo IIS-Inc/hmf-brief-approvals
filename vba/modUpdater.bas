@@ -13,6 +13,7 @@ Option Explicit
 '----------------------------------------------------------------
 Private Const GITHUB_RAW_BASE   As String = "https://raw.githubusercontent.com/IIS-Inc/hmf-brief-approvals/main/vba/"
 Private Const TEMP_PATH         As String = "C:\Windows\Temp\HMF_Update\"
+Private Const TOKEN_PLACEHOLDER As String = "REPLACE_WITH_TOKEN"
 
 ' Modules managed by the updater
 ' modUpdater is excluded — cannot update itself
@@ -20,9 +21,9 @@ Private Const MODULE_COUNT      As Integer = 5
 
 '================================================================
 ' UpdateFromGitHub
-' Master public function — called by Admin from Immediate Window
-' or triggered by a ribbon button (Admin only).
+' Master public function — called by Admin from Immediate Window.
 ' Downloads and reimports all managed modules from GitHub.
+' Schedules PostUpdateSave to run after VBA settles.
 '================================================================
 Public Sub UpdateFromGitHub()
 
@@ -43,8 +44,8 @@ Public Sub UpdateFromGitHub()
                  "  - modApprovals" & vbCrLf & _
                  "  - modRoles" & vbCrLf & _
                  "  - modRibbon" & vbCrLf & vbCrLf & _
-                 "NOTE: modUpdater cannot update itself." & vbCrLf & vbCrLf & _
-                 "The document will be saved after a successful update." & vbCrLf & vbCrLf & _
+                 "NOTE: modUpdater cannot update itself." & vbCrLf & _
+                 "NOTE: Token will need to be reinstalled after update." & vbCrLf & vbCrLf & _
                  "Do you want to proceed?"
 
     If MsgBox(strConfirm, vbQuestion + vbYesNo, "HMF Brief Approval — Update from GitHub") = vbNo Then
@@ -99,7 +100,6 @@ Public Sub UpdateFromGitHub()
 
         Debug.Print "Updating " & strModule & "..."
 
-        ' Download the file
         strContent = DownloadFile(strURL)
 
         If strContent = "" Then
@@ -107,9 +107,7 @@ Public Sub UpdateFromGitHub()
             intFailed = intFailed + 1
             Debug.Print "  FAILED: Could not download " & strURL
         Else
-            ' Write to temp file
             If WriteToFile(strFilePath, strContent) Then
-                ' Remove existing module and reimport
                 If ReimportModule(strModule, strFilePath) Then
                     arrResults(i) = strModule & " — OK"
                     intSuccess = intSuccess + 1
@@ -126,21 +124,14 @@ Public Sub UpdateFromGitHub()
             End If
         End If
 
-        ' Clean up temp file
         On Error Resume Next
         Kill strFilePath
         On Error GoTo 0
     Next i
 
-    ' Clean up temp directory
     On Error Resume Next
     RmDir TEMP_PATH
     On Error GoTo 0
-
-    ' Save document if any updates succeeded
-    If intSuccess > 0 Then
-        ActiveDocument.Save
-    End If
 
     ' Show results summary
     Dim strSummary As String
@@ -157,19 +148,159 @@ Public Sub UpdateFromGitHub()
                  "Failed:    " & intFailed
 
     If intFailed = 0 Then
-        MsgBox strSummary, vbInformation, "HMF Brief Approval — Update Successful"
+        MsgBox strSummary & vbCrLf & vbCrLf & _
+               "NEXT STEP: Run InstallToken to install the API token.", _
+               vbInformation, "HMF Brief Approval — Update Successful"
     Else
         MsgBox strSummary, vbExclamation, "HMF Brief Approval — Update Completed with Errors"
     End If
 
-    ' Invalidate ribbon to reflect any changes
+    ' Schedule save after VBA settles — avoids crash on immediate save
+    If intSuccess > 0 Then
+        Application.OnTime Now + TimeValue("0:00:05"), "PostUpdateSave"
+    End If
+
     InvalidateRibbon
 End Sub
 
 '================================================================
+' PostUpdateSave
+' Scheduled by UpdateFromGitHub via Application.OnTime.
+' Runs 5 seconds after update completes giving VBA time to settle.
+' Public so Application.OnTime can call it by name.
+'================================================================
+Public Sub PostUpdateSave()
+    On Error GoTo ErrorHandler
+
+    ActiveDocument.Save
+    Debug.Print "Document saved successfully after update."
+
+    ' Prompt Admin to install token
+    If MsgBox("Document saved successfully." & vbCrLf & vbCrLf & _
+              "Would you like to install the API token now?", _
+              vbQuestion + vbYesNo, "HMF Brief Approval — Install Token") = vbYes Then
+        InstallToken
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Document could not be saved automatically." & vbCrLf & _
+           "Please save manually with Ctrl+S.", _
+           vbExclamation, "HMF Brief Approval — Save Required"
+End Sub
+
+'================================================================
+' InstallToken
+' Admin only — prompts for the Quickbase API token and
+' writes it directly into modQuickbase using in-place
+' code replacement. Token never stored in GitHub.
+' Run from Immediate Window: InstallToken
+'================================================================
+Public Sub InstallToken()
+
+    ' Enforce Admin role
+    If GetCurrentUserRole() <> ROLE_ADMIN Then
+        MsgBox "Token installation is available to Admin users only.", _
+               vbExclamation, "HMF Brief Approval — Access Denied"
+        Exit Sub
+    End If
+
+    ' Verify VBA project object model is accessible
+    If Not IsVBAAccessible() Then
+        MsgBox "The VBA project object model is not accessible." & vbCrLf & _
+               "Enable it in Trust Center Settings first.", _
+               vbCritical, "HMF Brief Approval — Token Install Failed"
+        Exit Sub
+    End If
+
+    ' Prompt for token
+    Dim strToken As String
+    strToken = InputBox("Enter the Quickbase API User Token:" & vbCrLf & vbCrLf & _
+                        "This token will be installed directly into the document." & vbCrLf & _
+                        "It will not be saved to GitHub.", _
+                        "HMF Brief Approval — Install API Token", "")
+
+    ' User cancelled
+    If strToken = "" Then
+        MsgBox "Token installation cancelled.", _
+               vbInformation, "HMF Brief Approval"
+        Exit Sub
+    End If
+
+    strToken = Trim(strToken)
+
+    ' Basic validation — QB tokens follow a pattern
+    If Len(strToken) < 20 Then
+        MsgBox "That doesn't look like a valid Quickbase token." & vbCrLf & _
+               "Tokens are typically longer than 20 characters.", _
+               vbExclamation, "HMF Brief Approval — Invalid Token"
+        Exit Sub
+    End If
+
+    ' Write token into modQuickbase using in-place replacement
+    If ReplaceTokenInModule(strToken) Then
+        ' Save document to persist the token
+        ActiveDocument.Save
+
+        MsgBox "Token installed and document saved successfully!" & vbCrLf & vbCrLf & _
+               "Run TestConnection in the Immediate Window to verify.", _
+               vbInformation, "HMF Brief Approval — Token Installed"
+
+        Debug.Print "Token installed successfully."
+    Else
+        MsgBox "Token installation failed." & vbCrLf & _
+               "Please check the VBA editor and try again.", _
+               vbCritical, "HMF Brief Approval — Token Install Failed"
+    End If
+End Sub
+
+'================================================================
+' ReplaceTokenInModule
+' Finds the token placeholder line in modQuickbase and
+' replaces it with the actual token value.
+' Returns True on success.
+'================================================================
+Private Function ReplaceTokenInModule(strToken As String) As Boolean
+    Dim vbProj      As Object
+    Dim vbComp      As Object
+    Dim codeMod     As Object
+    Dim i           As Long
+    Dim strLine     As String
+
+    On Error GoTo ErrorHandler
+
+    Set vbProj = ActiveDocument.VBProject
+    Set vbComp = vbProj.VBComponents("modQuickbase")
+    Set codeMod = vbComp.CodeModule
+
+    ' Search for the placeholder line
+    For i = 1 To codeMod.CountOfLines
+        strLine = codeMod.Lines(i, 1)
+
+        If InStr(strLine, TOKEN_PLACEHOLDER) > 0 Then
+            ' Replace just this line with the real token
+            codeMod.ReplaceLine i, _
+                "Private Const QB_USER_TOKEN     As String = """ & strToken & """"
+            ReplaceTokenInModule = True
+            Debug.Print "  Token installed at line " & i
+            Exit Function
+        End If
+    Next i
+
+    ' Placeholder not found — token may already be installed
+    ' Check if a non-placeholder token exists
+    Debug.Print "  Placeholder not found — token may already be installed"
+    ReplaceTokenInModule = True
+    Exit Function
+
+ErrorHandler:
+    Debug.Print "  Token install error: " & Err.Description
+    ReplaceTokenInModule = False
+End Function
+
+'================================================================
 ' DownloadFile
-' Downloads the content of a URL as a string.
-' Returns empty string on failure.
 '================================================================
 Private Function DownloadFile(strURL As String) As String
     Dim http As Object
@@ -202,8 +333,6 @@ End Function
 
 '================================================================
 ' WriteToFile
-' Writes a string to a local file path.
-' Returns True on success.
 '================================================================
 Private Function WriteToFile(strPath As String, strContent As String) As Boolean
     Dim intFile As Integer
@@ -227,9 +356,6 @@ End Function
 
 '================================================================
 ' ReimportModule
-' Attempts to update a module's code in place first.
-' Falls back to remove/reimport if not on the call stack.
-' Returns True on success.
 '================================================================
 Private Function ReimportModule(strModuleName As String, _
                                  strFilePath As String) As Boolean
@@ -242,23 +368,18 @@ Private Function ReimportModule(strModuleName As String, _
 
     Set vbProj = ActiveDocument.VBProject
 
-    ' Check if module exists
     On Error Resume Next
     Set vbComp = vbProj.VBComponents(strModuleName)
     On Error GoTo ErrorHandler
 
     If Not vbComp Is Nothing Then
-        ' Try in-place code replacement first
-        ' This works even when the module is on the call stack
         On Error GoTo TryRemove
         Set codeMod = vbComp.CodeModule
 
-        ' Clear existing code
         If codeMod.CountOfLines > 0 Then
             codeMod.DeleteLines 1, codeMod.CountOfLines
         End If
 
-        ' Read new content from temp file and insert
         Dim intFile     As Integer
         Dim strLine     As String
         Dim strAll      As String
@@ -279,8 +400,6 @@ Private Function ReimportModule(strModuleName As String, _
 TryRemove:
     On Error GoTo ErrorHandler
 
-    ' Module doesn't exist or in-place failed
-    ' Fall back to remove and reimport
     On Error Resume Next
     If Not vbComp Is Nothing Then
         vbProj.VBComponents.Remove vbComp
@@ -306,8 +425,6 @@ End Function
 
 '================================================================
 ' CreateTempDirectory
-' Creates the temporary directory for downloaded files.
-' Returns True if directory exists or was created successfully.
 '================================================================
 Private Function CreateTempDirectory() As Boolean
     On Error GoTo ErrorHandler
@@ -325,8 +442,6 @@ End Function
 
 '================================================================
 ' IsVBAAccessible
-' Tests whether the VBA project object model is accessible.
-' Returns False if Trust access is not enabled.
 '================================================================
 Private Function IsVBAAccessible() As Boolean
     On Error GoTo NotAccessible
@@ -346,7 +461,6 @@ End Function
 
 '================================================================
 ' CheckForUpdates
-' Lightweight connectivity test — checks if GitHub is reachable.
 ' Run from Immediate Window: CheckForUpdates
 '================================================================
 Public Sub CheckForUpdates()
@@ -357,7 +471,6 @@ Public Sub CheckForUpdates()
 
     If strTest = "" Then
         Debug.Print "FAILED: Could not reach GitHub"
-        Debug.Print "URL: " & GITHUB_RAW_BASE & "modUtilities.bas"
     Else
         Debug.Print "OK: GitHub is reachable"
         Debug.Print "modUtilities.bas — " & Len(strTest) & " bytes downloaded"

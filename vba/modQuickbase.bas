@@ -2,6 +2,9 @@
 ' modQuickbase.bas
 ' HMF Brief Approval System
 ' Quickbase REST API engine — record updates, response handling
+' NOTE: QB_USER_TOKEN is installed separately by Admin via
+' modUpdater.InstallToken after UpdateFromGitHub completes.
+' Never commit a real token to the GitHub repository.
 '================================================================
 
 Option Explicit
@@ -11,7 +14,7 @@ Option Explicit
 '----------------------------------------------------------------
 Private Const QB_REALM          As String = "thehousemajoritypac.quickbase.com"
 Private Const QB_TABLE_ID       As String = "bv2gw2ikx"
-Private Const QB_USER_TOKEN     As String = "b7mi6q_h848_0_ceb89dqcctc4vcdree3bzbpt8aqu"
+Private Const QB_USER_TOKEN     As String = "REPLACE_WITH_TOKEN"
 Private Const QB_API_URL        As String = "https://api.quickbase.com/v1/records"
 
 ' Field IDs
@@ -25,17 +28,19 @@ Private Const FID_LOG           As Long = 13
 ' UpdateApprovalStatus
 ' Master public function — called by modApprovals after user
 ' confirms a status selection in the UserForm.
-'
-' Parameters:
-'   strDept        — "Digital", "Research", or "Executive"
-'   strDeptStatus  — unprefixed dept value  (e.g. "Approved")
-'   strBriefStatus — prefixed master value  (e.g. "Digital: Approved")
-'
-' Returns True on success, False on any failure.
 '================================================================
 Public Function UpdateApprovalStatus(strDept As String, _
                                      strDeptStatus As String, _
                                      strBriefStatus As String) As Boolean
+    ' Check token is installed
+    If QB_USER_TOKEN = "REPLACE_WITH_TOKEN" Then
+        MsgBox "The Quickbase API token has not been installed." & vbCrLf & vbCrLf & _
+               "Please contact your administrator.", _
+               vbCritical, "HMF Brief Approval — Token Not Installed"
+        UpdateApprovalStatus = False
+        Exit Function
+    End If
+
     Dim lngRID As Long
     lngRID = GetRID()
     If lngRID = 0 Then
@@ -90,10 +95,6 @@ End Function
 '================================================================
 ' BuildPayload
 ' Constructs the JSON body for the Quickbase POST request.
-' Always writes three fields in one call:
-'   FID 8  — Brief Approval Status (master/prefixed)
-'   FID 10, 11, or 12 — Department status (unprefixed)
-'   FID 13 — Log entry (same value as FID 8)
 '================================================================
 Private Function BuildPayload(lngRID As Long, _
                                lngDeptFID As Long, _
@@ -117,12 +118,11 @@ End Function
 '================================================================
 ' CallQuickbaseAPI
 ' Makes the HTTP POST request to the Quickbase Records API.
-' Returns True if HTTP 200 received, False otherwise.
 '================================================================
 Private Function CallQuickbaseAPI(strJSON As String, _
                                    ByRef strResponse As String) As Boolean
-    Dim http As Object
-    Dim blnSuccess As Boolean
+    Dim http        As Object
+    Dim blnSuccess  As Boolean
 
     On Error GoTo ErrorHandler
 
@@ -158,7 +158,6 @@ End Function
 
 '================================================================
 ' EscapeJSON
-' Escapes characters that would break JSON string values.
 '================================================================
 Private Function EscapeJSON(strInput As String) As String
     Dim strOut As String
@@ -175,11 +174,25 @@ Private Function EscapeJSON(strInput As String) As String
 End Function
 
 '================================================================
+' IsTokenInstalled
+' Public helper — returns True if token has been installed.
+' Called by modUpdater.InstallToken to verify success.
+'================================================================
+Public Function IsTokenInstalled() As Boolean
+    IsTokenInstalled = (QB_USER_TOKEN <> "REPLACE_WITH_TOKEN" And QB_USER_TOKEN <> "")
+End Function
+
+'================================================================
 ' TestConnection
-' Run from Immediate Window to verify API connectivity.
-' Type: TestConnection
+' Dev utility — tests API connectivity.
+' Run from Immediate Window: TestConnection
 '================================================================
 Public Sub TestConnection()
+    If Not IsTokenInstalled() Then
+        Debug.Print "TEST FAILED: Token not installed — run InstallToken first"
+        Exit Sub
+    End If
+
     Dim lngRID As Long
     lngRID = GetRID()
 
