@@ -82,14 +82,15 @@ Private Function PromptForRID() As Long
     strPrompt = "No HMF Record ID was found for this document." & vbCrLf & vbCrLf & _
                 "Please enter the Quickbase Record ID (numeric only):" & vbCrLf & vbCrLf & _
                 "You can find this in Quickbase under the Brief record URL" & vbCrLf & _
-                "or in the HMF ID field on the Brief form."
+                "or in the HMF ID field on the Brief form." & vbCrLf & vbCrLf & _
+                "Click Cancel to open without an ID (Admin update mode)."
 
     blnValid = False
 
     Do While Not blnValid
         strInput = InputBox(strPrompt, "HMF Brief Approval — Record ID Required", "")
 
-        ' User cancelled
+        ' User cancelled — allowed, Admin may need to update without RID
         If strInput = "" Then
             PromptForRID = 0
             Exit Function
@@ -134,10 +135,10 @@ Public Sub SaveRIDToProperty(lngRID As Long)
         ActiveDocument.CustomDocumentProperties.Add _
             Name:=PROP_RID, _
             LinkToContent:=False, _
-            Type:=msoPropertyTypeNumber, _
-            Value:=lngRID
+            Type:=msoPropertyTypeString, _
+            Value:=CStr(lngRID)
     Else
-        prop.Value = lngRID
+        prop.Value = CStr(lngRID)
     End If
 
     ActiveDocument.Save
@@ -283,12 +284,12 @@ End Function
 '================================================================
 ' InitializeDocument
 ' Called on document open from ThisDocument.
-' Handles RID, role authentication, and initial status.
+' Role always initializes first — allows Admin to
+' run UpdateFromGitHub even on a clean template with no RID.
 '================================================================
 Public Sub InitializeDocument()
 
-    ' Role always initializes first — allows Admin to
-    ' run UpdateFromGitHub even on a clean template with no RID
+    ' Role always initializes first
     InitializeUserRole
 
     ' RID check — exits silently if not provided
@@ -303,6 +304,77 @@ Public Sub InitializeDocument()
     If GetCurrentBriefStatus() = "" Then
         SetCurrentBriefStatus "Pending Digital review"
         SetDepartmentStatus "Digital", "Pending Digital review"
+    End If
+
+End Sub
+
+'================================================================
+' CleanTemplate
+' Removes all HMF custom document properties.
+' Deletes each property individually — cannot loop and delete
+' simultaneously in VBA as it causes silent failures.
+' Invalidates ribbon after clean so display updates immediately.
+' Run from Immediate Window or Admin ribbon button: CleanTemplate
+'================================================================
+Public Sub CleanTemplate()
+
+    If MsgBox("This will remove all HMF stored properties from this document." & vbCrLf & vbCrLf & _
+              "Use this before distributing the master template." & vbCrLf & vbCrLf & _
+              "Are you sure?", _
+              vbQuestion + vbYesNo, "HMF Brief Approval — Clean Template") = vbNo Then
+        Exit Sub
+    End If
+
+    Dim intRemoved As Integer
+    intRemoved = 0
+
+    ' Delete each property individually by name
+    On Error Resume Next
+
+    ActiveDocument.CustomDocumentProperties("HMF_RID").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    ActiveDocument.CustomDocumentProperties("HMF_BriefStatus").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    ActiveDocument.CustomDocumentProperties("HMF_DigitalStatus").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    ActiveDocument.CustomDocumentProperties("HMF_ResearchStatus").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    ActiveDocument.CustomDocumentProperties("HMF_ExecutiveStatus").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    ActiveDocument.CustomDocumentProperties("HMF_UserRole").Delete
+    If Err.Number = 0 Then intRemoved = intRemoved + 1
+    Err.Clear
+
+    On Error GoTo 0
+
+    ' Invalidate ribbon to reflect cleared state immediately
+    InvalidateRibbon
+
+    ' Save the clean document
+    ActiveDocument.Save
+
+    MsgBox "Template cleaned successfully." & vbCrLf & vbCrLf & _
+           intRemoved & " properties removed." & vbCrLf & _
+           "Document saved.", _
+           vbInformation, "HMF Brief Approval — Clean Complete"
+
+    ' Prompt for new RID immediately after clean
+    Dim lngRID As Long
+    lngRID = GetRID()
+
+    ' Invalidate again to show new RID in ribbon
+    If lngRID > 0 Then
+        InvalidateRibbon
     End If
 
 End Sub

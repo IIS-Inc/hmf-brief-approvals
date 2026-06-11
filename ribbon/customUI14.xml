@@ -72,7 +72,7 @@
         </group>
 
         <!-- ===================== -->
-        <!-- INFO GROUP            -->
+        <!-- BRIEF STATUS GROUP    -->
         <!-- ===================== -->
         <group id="grpInfo"
                label="Brief Status">
@@ -90,6 +90,31 @@
                   size="normal"
                   imageMso="Refresh"
                   onAction="Ribbon_Refresh"/>
+
+        </group>
+
+        <!-- ===================== -->
+        <!-- ADMIN GROUP           -->
+        <!-- ===================== -->
+        <group id="grpAdmin"
+               label="Admin"
+               getVisible="Admin_GetVisible">
+
+          <button id="btnInitialize"
+                  label="Initialize Template"
+                  screentip="Initialize Template"
+                  supertip="Clears all HMF properties and prepares the document as a clean template."
+                  size="large"
+                  imageMso="RecordsDeleteRecord"
+                  onAction="InitializeTemplate_OnAction"/>
+
+          <button id="btnCheckUpdates"
+                  label="Check for Updates"
+                  screentip="Check for Updates"
+                  supertip="Pulls the latest VBA modules from the GitHub repository."
+                  size="large"
+                  imageMso="Refresh"
+                  onAction="CheckForUpdates_OnAction"/>
 
         </group>
 

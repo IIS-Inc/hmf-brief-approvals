@@ -20,7 +20,7 @@ End Sub
 '================================================================
 ' Ribbon_Refresh
 ' Called by the Refresh button — forces ribbon to re-evaluate
-' all callbacks. Use after a status update.
+' all callbacks.
 '================================================================
 Public Sub Ribbon_Refresh(control As Object)
     If Not m_ribbon Is Nothing Then
@@ -30,8 +30,8 @@ End Sub
 
 '================================================================
 ' InvalidateRibbon
-' Called internally after a successful status update to
-' refresh ribbon state without user clicking Refresh.
+' Called internally after status updates or template clean
+' to refresh ribbon state automatically.
 '================================================================
 Public Sub InvalidateRibbon()
     If Not m_ribbon Is Nothing Then
@@ -131,11 +131,30 @@ Public Sub Brief_GetStatusLabel(control As Object, ByRef label As Variant)
 End Sub
 
 Public Sub Brief_GetRIDLabel(control As Object, ByRef label As Variant)
-    Dim lngRID As Long
-    lngRID = GetRID()
-    If lngRID = 0 Then
+    Dim prop As Object
+
+    On Error Resume Next
+    Set prop = ActiveDocument.CustomDocumentProperties("HMF_RID")
+    On Error GoTo 0
+
+    If prop Is Nothing Then
         label = "HMF ID: Not set"
     Else
-        label = "HMF ID: " & lngRID
+        label = "HMF ID: " & prop.Value
     End If
+End Sub
+
+'================================================================
+' ADMIN CALLBACKS
+'================================================================
+Public Sub Admin_GetVisible(control As Object, ByRef visible As Variant)
+    visible = (GetCurrentUserRole() = ROLE_ADMIN)
+End Sub
+
+Public Sub InitializeTemplate_OnAction(control As Object)
+    CleanTemplate
+End Sub
+
+Public Sub CheckForUpdates_OnAction(control As Object)
+    UpdateFromGitHub
 End Sub
